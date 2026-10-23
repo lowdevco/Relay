@@ -1,0 +1,8 @@
+Django>=6.1,<6.2
+djangorestframework>=3.18,<4
+python-decouple>=3.8,<4
+django-cors-headers>=4.9,<5
+google-genai>=2.33,<3
+requests>=2.34,<3
+# Optional, only when DATABASE_ENGINE=mysql:
+# mysqlclient>=2.2

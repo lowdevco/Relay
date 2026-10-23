@@ -1,0 +1,29 @@
+# Secrets
+.env
+.env.*
+!.env.example
+env/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+backend/.venv/
+.venv/
+backend/db.sqlite3
+backend/*.sqlite3
+backend/media_store/
+backend/staticfiles/
+.pytest_cache/
+.coverage
+
+# Node
+node_modules/
+frontend/dist/
+*.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

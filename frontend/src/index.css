@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand: deep green ink with a fresh mint accent */
+  --color-ink-950: #0b1512;
+  --color-ink-900: #10201b;
+  --color-ink-800: #17302a;
+  --color-ink-700: #22443b;
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+
+  /* Surfaces */
+  --color-canvas: #f6f7f5;
+  --color-line: #e5e7e3;
+
+  /* Message roles */
+  --color-role-customer: #ffffff;
+  --color-role-human: #e0f2fe;
+  --color-role-ai: #d1fae5;
+  --color-role-approved: #ede9fe;
+  --color-role-draft: #fffbeb;
+
+  --radius-xl2: 1.25rem;
+  --shadow-card: 0 1px 2px rgba(16, 32, 27, 0.04), 0 1px 3px rgba(16, 32, 27, 0.06);
+  --shadow-pop: 0 10px 30px -10px rgba(16, 32, 27, 0.25);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-canvas text-ink-900 antialiased;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Subtle scrollbars */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cfd5cf transparent;
+}
+
+.chat-wallpaper {
+  background-color: #eef1ec;
+  background-image: radial-gradient(rgba(16, 32, 27, 0.05) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}

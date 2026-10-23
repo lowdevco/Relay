@@ -1,0 +1,242 @@
+import { motion } from 'framer-motion'
+import { CheckCircle2, CircleAlert, Plug, RefreshCw, Shuffle, SlidersHorizontal } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Alert, Badge, Button, Card, CardHeader, Input, Loading, PageHeader, Select, StatusDot, Toggle, cx, useToast } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
+import { post, put } from '../lib/api'
+import { PROVIDER_LABEL, formatDateTime, useApi } from '../lib/hooks'
+
+const PROVIDER_META = {
+  gemini: { tagline: "Google's Gemini models via the official google-genai SDK.", accent: 'from-sky-500 to-indigo-500', letter: 'G' },
+  deepseek: { tagline: "DeepSeek's chat completions API (OpenAI-compatible).", accent: 'from-blue-600 to-cyan-500', letter: 'D' },
+  grok: { tagline: "xAI's official Grok API (paid per token; no free tier).", accent: 'from-stone-800 to-stone-950', letter: 'X' },
+  groq: { tagline: 'GroqCloud open models. Official free plan (rate limited).', accent: 'from-orange-500 to-rose-500', letter: 'Q', free: true },
+}
+
+function ProviderCard({ status, selected, onSelect, test, onTest, testing, disabled }) {
+  const meta = PROVIDER_META[status.provider]
+  return (
+    <motion.div
+      role="radio"
+      tabIndex={disabled ? -1 : 0}
+      whileTap={disabled ? undefined : { scale: 0.99 }}
+      onClick={() => !disabled && onSelect(status.provider)}
+      onKeyDown={(e) => {
+        if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onSelect(status.provider)
+        }
+      }}
+      aria-checked={selected}
+      aria-disabled={disabled}
+      aria-label={status.label}
+      className={cx(
+        'relative w-full cursor-pointer rounded-xl2 border bg-white p-5 text-left transition-all',
+        disabled && 'cursor-not-allowed opacity-90',
+        selected ? 'border-brand-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]' : 'border-line hover:border-stone-300',
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`grid size-10 place-items-center rounded-xl bg-gradient-to-br ${meta.accent} font-display font-semibold text-white`}>{meta.letter}</div>
+          <div>
+            <p className="font-display font-semibold">{status.label}</p>
+            <p className="text-xs text-stone-500">{meta.tagline}</p>
+            {meta.free && <Badge color="green" className="mt-1">Free plan available</Badge>}
+          </div>
+        </div>
+        <span className={cx('grid size-5 place-items-center rounded-full border-2', selected ? 'border-brand-600 bg-brand-600' : 'border-stone-300')}>
+          {selected && <span className="size-2 rounded-full bg-white" />}
+        </span>
+      </div>
+      <div className="mt-4 space-y-2 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-stone-500">Model</span>
+          <code className="rounded bg-stone-100 px-1.5 py-0.5 text-xs">{status.model || 'not set'}</code>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-stone-500">Server configuration</span>
+          {status.configured ? (
+            <Badge color="green" icon={CheckCircle2}>Configured</Badge>
+          ) : (
+            <Badge color="red" icon={CircleAlert}>Missing {status.missing.join(', ')}</Badge>
+          )}
+        </div>
+        {test && (
+          <div className={cx('rounded-lg px-3 py-2 text-xs', test.ok ? 'bg-brand-50 text-brand-800' : 'bg-red-50 text-red-800')}>
+            {test.ok ? `Connection OK · ${test.model} · ${test.latency_ms} ms` : `Connection failed: ${test.error}`}
+          </div>
+        )}
+      </div>
+      <div className="mt-4">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={Plug}
+          loading={testing}
+          disabled={!status.configured}
+          onClick={(e) => {
+            e.stopPropagation()
+            onTest(status.provider)
+          }}
+        >
+          Test connection
+        </Button>
+      </div>
+    </motion.div>
+  )
+}
+
+export default function AISettings() {
+  const { canManage } = useAuth()
+  const toast = useToast()
+  const { data, setData, loading, error, reload } = useApi('/ai/settings/')
+  const [tests, setTests] = useState({})
+  const [testing, setTesting] = useState(null)
+  const [saving, setSaving] = useState(null)
+  const [tuning, setTuning] = useState(null)
+
+  useEffect(() => {
+    if (data) setTuning({ temperature: data.temperature, max_reply_chars: data.max_reply_chars, history_messages: data.history_messages })
+  }, [data])
+
+  if (loading && !data) return <Loading />
+  if (error) return <Alert tone="error">{error.message}</Alert>
+
+  async function save(patch, label) {
+    setSaving(label)
+    try {
+      const next = await put('/ai/settings/', patch)
+      setData(next)
+      toast(label === 'provider' ? `Replies will now be generated by ${PROVIDER_LABEL[next.provider]}.` : 'AI settings saved.')
+    } catch (err) {
+      toast(err.message, 'error')
+      reload(true)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function runTest(provider) {
+    setTesting(provider)
+    try {
+      const result = await post('/ai/test/', { provider })
+      setTests((t) => ({ ...t, [provider]: result }))
+    } catch (err) {
+      setTests((t) => ({ ...t, [provider]: { ok: false, error: err.message } }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const others = data.providers.filter((p) => p.provider !== data.provider)
+  const fallbackChoice = others.some((p) => p.provider === data.fallback_provider)
+    ? data.fallback_provider
+    : (others.find((p) => p.configured) || others[0])?.provider
+  const fallbackStatus = others.find((p) => p.provider === fallbackChoice)
+
+  function selectProvider(name) {
+    if (name === data.provider) return
+    // Selecting the current fallback provider: keep fallback on by swapping it to the previous provider.
+    if (data.fallback_enabled && data.fallback_provider === name) {
+      save({ provider: name, fallback_provider: data.provider }, 'provider')
+    } else {
+      save({ provider: name }, 'provider')
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title="AI provider"
+        description="Choose which model writes, classifies and summarizes replies for this workspace. The choice is saved on the server and applies to every new AI request."
+      />
+      {!canManage && <Alert tone="info" className="mb-4">Only owners and admins can change the provider.</Alert>}
+
+      <Card className="mb-4">
+        <CardHeader
+          title="Choose AI provider"
+          description="Switching is validated server-side. Conversation history, knowledge, persona and examples are kept."
+          action={saving === 'provider' && <RefreshCw className="size-4 animate-spin text-stone-400" />}
+        />
+        <div className="grid gap-4 p-5 md:grid-cols-2" role="radiogroup" aria-label="Choose AI provider">
+          {data.providers.map((p) => (
+            <ProviderCard
+              key={p.provider}
+              status={p}
+              selected={data.provider === p.provider}
+              disabled={!canManage || saving}
+              onSelect={selectProvider}
+              test={tests[p.provider]}
+              onTest={runTest}
+              testing={testing === p.provider}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-line px-5 py-3 text-sm">
+          <StatusDot ok={data.active.configured} label={<>Active: <b>{data.active.label}</b> · <code className="text-xs">{data.active.model}</code></>} />
+          {data.last_generation && (
+            <span className="text-stone-500">
+              Last AI call: {PROVIDER_LABEL[data.last_generation.provider]} ({data.last_generation.status}
+              {data.last_generation.fallback_used ? ', fallback' : ''}) · {formatDateTime(data.last_generation.created_at)}
+            </span>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Automatic fallback" icon={Shuffle} description="Off by default. The selected provider is never replaced silently." />
+          <div className="space-y-4 p-5">
+            <Toggle
+              checked={data.fallback_enabled}
+              disabled={!canManage || saving}
+              onChange={(v) => save(v ? { fallback_enabled: true, fallback_provider: fallbackChoice } : { fallback_enabled: false }, 'fallback')}
+              label={`Retry with ${PROVIDER_LABEL[fallbackChoice]} if ${PROVIDER_LABEL[data.provider]} fails`}
+              description="Every fallback is logged and shown in usage records and on the message."
+            />
+            <Select
+              label="Fallback provider"
+              value={fallbackChoice}
+              disabled={!canManage || saving}
+              onChange={(e) => save({ fallback_provider: e.target.value }, 'fallback')}
+              options={others.map((p) => ({ value: p.provider, label: p.configured ? p.label : `${p.label} (not configured)` }))}
+            />
+            {fallbackStatus && !fallbackStatus.configured && (
+              <p className="text-xs text-stone-500">{fallbackStatus.label} must be configured on the server to enable fallback.</p>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Generation settings" icon={SlidersHorizontal} />
+          {tuning && (
+            <form
+              className="grid gap-4 p-5 sm:grid-cols-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                save(tuning, 'tuning')
+              }}
+            >
+              <Input label="Temperature" type="number" step="0.1" min="0" max="1.5" value={tuning.temperature}
+                onChange={(e) => setTuning({ ...tuning, temperature: Number(e.target.value) })} disabled={!canManage} />
+              <Input label="Max reply chars" type="number" min="80" max="4000" value={tuning.max_reply_chars}
+                onChange={(e) => setTuning({ ...tuning, max_reply_chars: Number(e.target.value) })} disabled={!canManage} />
+              <Input label="History messages" type="number" min="2" max="40" value={tuning.history_messages}
+                onChange={(e) => setTuning({ ...tuning, history_messages: Number(e.target.value) })} disabled={!canManage} />
+              <div className="sm:col-span-3">
+                <Button type="submit" variant="secondary" loading={saving === 'tuning'} disabled={!canManage}>Save generation settings</Button>
+              </div>
+            </form>
+          )}
+        </Card>
+      </div>
+
+      <p className="mt-4 text-xs text-stone-500">
+        API keys and model identifiers are read from <code>backend/.env</code> (GEMINI_*, DEEPSEEK_*, GROK_*, GROQ_*) and are never sent to the browser.
+        Groq has a free plan with rate limits (about 30 requests/min, 1,000/day, 8K tokens/min); requests over the limit
+        are retried briefly, then queued for your review. xAI Grok is billed per token.
+      </p>
+    </div>
+  )
+}
