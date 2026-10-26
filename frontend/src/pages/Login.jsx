@@ -6,7 +6,7 @@ import { Alert, Button, Input } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 
 const POINTS = [
-  { icon: Bot, title: 'Gemini, DeepSeek, Groq or Grok', text: 'Pick the model that writes your replies. Switch any time.' },
+  { icon: Bot, title: 'Gemini, DeepSeek or Groq', text: 'Pick the model that writes your replies. Switch any time.' },
   { icon: Workflow, title: 'You stay in control', text: 'Drafts, approvals, or automatic replies. Take over any chat in one click.' },
   { icon: ShieldCheck, title: 'Official WhatsApp API', text: "Uses Meta's WhatsApp Business Platform. No phone scraping." },
 ]

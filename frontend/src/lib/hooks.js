@@ -65,5 +65,5 @@ export function formatDateTime(value) {
   return new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export const PROVIDER_LABEL = { gemini: 'Google Gemini', deepseek: 'DeepSeek', grok: 'xAI Grok', groq: 'Groq' }
+export const PROVIDER_LABEL = { gemini: 'Google Gemini', deepseek: 'DeepSeek', groq: 'Groq' }
 export const MODE_LABEL = { manual: 'Manual', approval: 'Approval', automatic: 'Automatic', off: 'Off' }
