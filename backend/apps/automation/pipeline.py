@@ -95,6 +95,20 @@ def _auto_rate_exceeded(conversation, automation):
     return sent >= automation.max_auto_replies_per_hour
 
 
+def _expire_owner_takeover(conversation, automation):
+    """Owner takeovers from the phone app (takeover_by is None) end after owner_takeover_minutes.
+    Takeovers clicked in Relay (takeover_by set) stay until someone resumes the AI."""
+    if not conversation.human_takeover or conversation.takeover_by_id or not conversation.takeover_at:
+        return
+    if timezone.now() - conversation.takeover_at < timedelta(minutes=automation.owner_takeover_minutes):
+        return
+    Conversation.objects.filter(pk=conversation.pk, takeover_by__isnull=True).update(
+        human_takeover=False, takeover_at=None
+    )
+    conversation.bump_version()
+    conversation.refresh_from_db(fields=["human_takeover", "takeover_at"])
+
+
 def process_inbound(message_id):
     message = Message.objects.select_related("conversation__contact", "workspace").get(pk=message_id)
     if message.direction != Message.Direction.INBOUND:
@@ -103,6 +117,7 @@ def process_inbound(message_id):
     workspace = message.workspace
     automation, _ = AutomationSettings.objects.get_or_create(workspace=workspace)
     voice_settings, _ = VoiceSettings.objects.get_or_create(workspace=workspace)
+    _expire_owner_takeover(conversation, automation)
     start_version = conversation.state_version
     mode = rules.effective_mode(conversation, automation)
 
@@ -121,6 +136,9 @@ def process_inbound(message_id):
 
     if mode == "off":
         return "skipped:automation_off"
+    # Outside AI hours the owner handles chats from the phone; the AI stays completely silent.
+    if not rules.within_operating_hours(automation, workspace.timezone):
+        return "skipped:outside_ai_hours"
 
     reply_format = resolve_reply_format(conversation, automation, voice_settings)
     service = AIService(workspace)
@@ -166,8 +184,6 @@ def process_inbound(message_id):
     if mode == "automatic" and not reasons:
         if not conversation.within_service_window():
             reasons.append("window_closed")
-        if not rules.within_operating_hours(automation, workspace.timezone):
-            reasons.append("outside_operating_hours")
         if _auto_rate_exceeded(conversation, automation):
             reasons.append("auto_reply_rate_limit")
         if message.provider_timestamp and timezone.now() - message.provider_timestamp > STALE_AFTER:

@@ -10,7 +10,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
 
-from apps.conversations.models import STATUS_ORDER, Contact, Conversation, MediaAsset, Message, MessageStatusEvent
+from apps.conversations.models import STATUS_ORDER, Contact, Conversation, Draft, MediaAsset, Message, MessageStatusEvent
 from apps.core import jobs
 from apps.core.models import UsageEvent
 from apps.core.services import record_error, record_usage
@@ -91,7 +91,8 @@ def process_payload(payload, raw_body, signature_valid, simulated=False):
 
     for entry in payload.get("entry") or []:
         for change in entry.get("changes") or []:
-            if change.get("field") != "messages":
+            field = change.get("field")
+            if field not in ("messages", "smb_message_echoes"):
                 continue
             value = change.get("value") or {}
             phone_number_id = (value.get("metadata") or {}).get("phone_number_id")
@@ -105,6 +106,8 @@ def process_payload(payload, raw_body, signature_valid, simulated=False):
             if not simulated:
                 WhatsAppIntegration.objects.filter(pk=integration.pk).update(last_webhook_at=now)
             names = {c.get("wa_id"): (c.get("profile") or {}).get("name", "") for c in value.get("contacts") or []}
+            for m in value.get("message_echoes") or []:
+                _ingest_owner_echo(integration, m)
             for m in value.get("messages") or []:
                 created_jobs.extend(_ingest_message(integration, m, names, simulated))
             for s in value.get("statuses") or []:
@@ -189,6 +192,52 @@ def _ingest_message(integration, m, names, simulated=False):
             )
         )
     return new_jobs
+
+
+def _ingest_owner_echo(integration, m):
+    """Coexistence: the owner replied from the WhatsApp Business app. Record it and pause the AI for that chat."""
+    workspace = integration.workspace
+    wa_id = m.get("to")
+    wamid = m.get("id")
+    if not wa_id or not wamid:
+        return
+    mtype, text, _media_id, _mime = _extract_content(m)
+    sent_at = _ts(m.get("timestamp")) or timezone.now()
+    with transaction.atomic():
+        if Message.objects.filter(workspace=workspace, provider_message_id=wamid).exists():
+            return
+        contact, _ = Contact.objects.get_or_create(workspace=workspace, wa_id=wa_id)
+        conversation, _ = Conversation.objects.get_or_create(workspace=workspace, contact=contact)
+        try:
+            with transaction.atomic():
+                Message.objects.create(
+                    workspace=workspace,
+                    conversation=conversation,
+                    direction=Message.Direction.OUTBOUND,
+                    sender_type=Message.Sender.HUMAN,
+                    message_type=mtype,
+                    text=text[:4096],
+                    provider_message_id=wamid,
+                    status=Message.Status.SENT,
+                    provider_timestamp=sent_at,
+                )
+        except IntegrityError:
+            return
+        # takeover_by stays empty: that marks it as a phone-app takeover, which expires on its own.
+        Conversation.objects.filter(pk=conversation.pk).update(
+            human_takeover=True,
+            takeover_by=None,
+            takeover_at=timezone.now(),
+            last_message_at=timezone.now(),
+            last_message_preview=(text[:120] if text else f"[{mtype}]"),
+            needs_attention=False,
+            unread_count=0,
+        )
+        conversation.bump_version()
+        # A pending AI draft for this chat is out of date once the owner has answered.
+        Draft.objects.filter(
+            conversation=conversation, status__in=[Draft.Status.PENDING, Draft.Status.SUGGESTION]
+        ).update(status=Draft.Status.SUPERSEDED)
 
 
 def _ingest_status(integration, s):

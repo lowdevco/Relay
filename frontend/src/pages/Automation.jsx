@@ -114,9 +114,11 @@ export default function Automation() {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Operating hours" icon={Clock} description="Outside these hours automatic replies are queued for approval." />
+            <CardHeader title="AI hours" icon={Clock} description="Outside these hours the AI stays silent and you reply from the WhatsApp Business app. End before start means overnight (e.g. 22:00–06:00)." />
             <div className="space-y-3 p-5">
-              <Toggle label="Only auto-send during operating hours" checked={form.operating_hours_enabled} onChange={set('operating_hours_enabled')} />
+              <Toggle label="Only let the AI reply during these hours" checked={form.operating_hours_enabled} onChange={set('operating_hours_enabled')} />
+              <Input label="Pause the AI after you reply from the phone (minutes)" type="number" min={0} max={10080}
+                value={form.owner_takeover_minutes ?? 120} onChange={(e) => set('owner_takeover_minutes')(Number(e.target.value))} />
               <div className={cx('space-y-2', !form.operating_hours_enabled && 'opacity-50')}>
                 {DAYS.map(([d, label]) => {
                   const range = hours[d]?.[0]
