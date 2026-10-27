@@ -78,11 +78,13 @@ export default function Integrations() {
   const [waba, setWaba] = useState('')
   const [busy, setBusy] = useState(null)
 
+  // Re-sync when the saved number changes elsewhere, so an old tab can't save stale IDs back.
+  const savedPid = data?.whatsapp.integration?.phone_number_id || data?.whatsapp.env.env_phone_number_id || ''
+  const savedWaba = data?.whatsapp.integration?.business_account_id || data?.whatsapp.env.env_business_account_id || ''
   useEffect(() => {
-    if (!data) return
-    setPid((p) => p || data.whatsapp.integration?.phone_number_id || data.whatsapp.env.env_phone_number_id || '')
-    setWaba((w) => w || data.whatsapp.integration?.business_account_id || data.whatsapp.env.env_business_account_id || '')
-  }, [data])
+    setPid(savedPid)
+    setWaba(savedWaba)
+  }, [savedPid, savedWaba])
 
   if (loading && !data) return <Loading />
   if (error) return <Alert tone="error">{error.message}</Alert>
