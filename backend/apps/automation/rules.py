@@ -103,6 +103,17 @@ def should_escalate(reply, flags):
     )
 
 
+def _valid_ranges(automation, day):
+    for rng in (automation.operating_hours or {}).get(day, []):
+        try:
+            start, end = rng
+            datetime.strptime(start, "%H:%M")
+            datetime.strptime(end, "%H:%M")
+        except (ValueError, TypeError):
+            continue
+        yield start, end
+
+
 def within_operating_hours(automation, tz_name, now=None):
     if not automation.operating_hours_enabled:
         return True
@@ -111,15 +122,12 @@ def within_operating_hours(automation, tz_name, now=None):
     except ZoneInfoNotFoundError:
         tz = ZoneInfo("UTC")
     local = (now or timezone.now()).astimezone(tz)
-    ranges = (automation.operating_hours or {}).get(DAYS[local.weekday()], [])
     current = local.strftime("%H:%M")
-    for rng in ranges:
-        try:
-            start, end = rng
-            datetime.strptime(start, "%H:%M")
-            datetime.strptime(end, "%H:%M")
-        except (ValueError, TypeError):
-            continue
-        if start <= current < end:
+    today, yesterday = DAYS[local.weekday()], DAYS[local.weekday() - 1]
+    for start, end in _valid_ranges(automation, today):
+        if start < end and start <= current < end:
             return True
-    return False
+        if start > end and current >= start:  # overnight range, evening part
+            return True
+    # Overnight range that started yesterday evening and runs into this morning.
+    return any(start > end and current < end for start, end in _valid_ranges(automation, yesterday))

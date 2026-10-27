@@ -542,7 +542,7 @@ function Thread({ id, onBack }) {
 /* ------------------------------------------------------------------ */
 function SimulateModal({ open, onClose }) {
   const toast = useToast()
-  const [form, setForm] = useState({ name: 'Test Customer', wa_id: '15550001111', text: 'Hi, do you have any slots available tomorrow?' })
+  const [form, setForm] = useState({ kind: 'customer', name: 'Test Customer', wa_id: '15550001111', text: 'Hi, do you have any slots available tomorrow?' })
   const [busy, setBusy] = useState(false)
   return (
     <Modal open={open} onClose={onClose} title="Simulate an inbound message"
@@ -552,7 +552,7 @@ function SimulateModal({ open, onClose }) {
           setBusy(true)
           try {
             await post('/dev/simulate-inbound/', form)
-            toast('Simulated message injected. The AI pipeline is running.')
+            toast(form.kind === 'owner_echo' ? 'Owner reply simulated. The AI is paused for this chat.' : 'Simulated message injected. The AI pipeline is running.')
             onClose()
           } catch (err) { toast(err.message, 'error') } finally { setBusy(false) }
         }}>Inject message</Button>
@@ -560,6 +560,8 @@ function SimulateModal({ open, onClose }) {
       <Alert tone="warn" className="mb-4" title="Development tool">
         This creates a webhook-shaped event locally. It does not come from WhatsApp. Replies are still sent through the real Cloud API and will fail visibly if credentials are missing or the number is not a real recipient.
       </Alert>
+      <Segmented className="mb-4" value={form.kind} onChange={(kind) => setForm({ ...form, kind })}
+        options={[{ value: 'customer', label: 'Customer message' }, { value: 'owner_echo', label: 'Owner reply from phone' }]} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Input label="Customer name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="WhatsApp number (digits)" value={form.wa_id} onChange={(e) => setForm({ ...form, wa_id: e.target.value.replace(/\D/g, '') })} />

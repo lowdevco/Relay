@@ -11,7 +11,6 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ canManage: true }) 
 const providers = [
   { provider: 'gemini', label: 'Google Gemini', configured: true, model: 'gemini-3.8-flash', missing: [] },
   { provider: 'deepseek', label: 'DeepSeek', configured: true, model: 'deepseek-flash', missing: [] },
-  { provider: 'grok', label: 'xAI Grok', configured: true, model: 'grok-4.20-0309-non-reasoning', missing: [] },
   { provider: 'groq', label: 'Groq', configured: true, model: 'openai/gpt-oss-120b', missing: [] },
 ]
 const settings = (provider) => ({
@@ -75,21 +74,6 @@ describe('AI provider selector', () => {
     await waitFor(() => expect(puts).toEqual([{ provider: 'groq' }]))
   })
 
-  it('can select xAI Grok', async () => {
-    let current = 'gemini'
-    const puts = []
-    mockFetch((url, opts) => {
-      if (opts.method === 'PUT') {
-        puts.push(JSON.parse(opts.body))
-        current = puts.at(-1).provider
-      }
-      return { body: settings(current) }
-    })
-    render(<MemoryRouter><ToastProvider><AISettings /></ToastProvider></MemoryRouter>)
-    fireEvent.click(await screen.findByRole('radio', { name: 'xAI Grok' }))
-    await waitFor(() => expect(puts).toEqual([{ provider: 'grok' }]))
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'xAI Grok' })).toHaveAttribute('aria-checked', 'true'))
-  })
 
   it('shows the server error and keeps the previous provider when switching fails', async () => {
     mockFetch((url, opts) =>

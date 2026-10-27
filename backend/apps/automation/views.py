@@ -42,8 +42,8 @@ class AutomationSettingsSerializer(serializers.ModelSerializer):
             if day not in DAYS or not isinstance(ranges, list):
                 raise serializers.ValidationError(f"Invalid day '{day}'.")
             for r in ranges:
-                if not (isinstance(r, list) and len(r) == 2 and all(isinstance(t, str) and TIME.match(t) for t in r) and r[0] < r[1]):
-                    raise serializers.ValidationError(f"Invalid range for {day}: use [\"09:00\", \"18:00\"].")
+                if not (isinstance(r, list) and len(r) == 2 and all(isinstance(t, str) and TIME.match(t) for t in r) and r[0] != r[1]):
+                    raise serializers.ValidationError(f"Invalid range for {day}: use [\"09:00\", \"18:00\"] (or [\"22:00\", \"06:00\"] overnight).")
         return value
 
     def validate_review_topics(self, value):

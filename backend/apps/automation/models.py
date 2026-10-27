@@ -30,8 +30,9 @@ class AutomationSettings(models.Model):
     confidence_threshold = models.FloatField(
         default=0.75, validators=[MinValueValidator(0.0), MaxValueValidator(1.0)]
     )
+    # "AI hours": outside them the AI stays silent and the owner replies from the WhatsApp Business app.
     operating_hours_enabled = models.BooleanField(default=False)
-    # {"mon": [["09:00","18:00"]], ...} in workspace timezone
+    # {"mon": [["09:00","18:00"]], ...} in workspace timezone; start > end means the range runs past midnight.
     operating_hours = models.JSONField(default=dict, blank=True)
     # Intents allowed for automatic sending. Empty list = all intents not otherwise blocked.
     allowed_auto_intents = models.JSONField(default=list, blank=True)
@@ -43,6 +44,8 @@ class AutomationSettings(models.Model):
     default_reply_format = models.CharField(max_length=8, default="text")  # text / voice
     voice_requires_approval = models.BooleanField(default=True)
     max_consecutive_failures = models.PositiveSmallIntegerField(default=2)
+    # Coexistence: after the owner replies from the phone app, the AI stays out of that chat this long.
+    owner_takeover_minutes = models.PositiveSmallIntegerField(default=120, validators=[MaxValueValidator(10080)])
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):

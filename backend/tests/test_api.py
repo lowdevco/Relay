@@ -83,7 +83,7 @@ class SettingsPersistenceTests(BaseTestCase):
         self.assertEqual(self.client.get("/api/automation/").json()["mode"], "automatic")
 
     def test_operating_hours_validation(self):
-        r = self.client.put("/api/automation/", {"operating_hours": {"mon": [["18:00", "09:00"]]}}, format="json")
+        r = self.client.put("/api/automation/", {"operating_hours": {"mon": [["9:00", "18:00"]]}}, format="json")
         self.assertEqual(r.status_code, 400)
         r = self.client.put("/api/automation/", {"operating_hours_enabled": True, "operating_hours": {"mon": [["09:00", "18:00"]]}}, format="json")
         self.assertEqual(r.status_code, 200)

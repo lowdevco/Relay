@@ -210,20 +210,23 @@ class DevSimulateInboundView(APIView):
         name = str(request.data.get("name") or "Test Customer")[:80]
         if not text or not wa_id.isdigit():
             return Response({"detail": "text and a numeric wa_id are required."}, status=400)
+        # kind="owner_echo" pretends the owner replied from the WhatsApp Business app (coexistence test mode).
+        owner_echo = request.data.get("kind") == "owner_echo"
+        msg = {"id": f"wamid.DEV-{uuid.uuid4().hex}", "timestamp": str(int(time.time())), "type": "text", "text": {"body": text}}
+        value = {
+            "messaging_product": "whatsapp",
+            "metadata": {"display_phone_number": integration.display_phone_number, "phone_number_id": integration.phone_number_id},
+        }
+        if owner_echo:
+            value["message_echoes"] = [{**msg, "from": integration.display_phone_number or "0", "to": wa_id}]
+        else:
+            value["contacts"] = [{"profile": {"name": name}, "wa_id": wa_id}]
+            value["messages"] = [{**msg, "from": wa_id}]
         payload = {
             "object": "whatsapp_business_account",
             "entry": [{
                 "id": integration.business_account_id or "0",
-                "changes": [{
-                    "field": "messages",
-                    "value": {
-                        "messaging_product": "whatsapp",
-                        "metadata": {"display_phone_number": integration.display_phone_number, "phone_number_id": integration.phone_number_id},
-                        "contacts": [{"profile": {"name": name}, "wa_id": wa_id}],
-                        "messages": [{"from": wa_id, "id": f"wamid.DEV-{uuid.uuid4().hex}", "timestamp": str(int(time.time())),
-                                      "type": "text", "text": {"body": text}}],
-                    },
-                }],
+                "changes": [{"field": "smb_message_echoes" if owner_echo else "messages", "value": value}],
             }],
         }
         raw = json.dumps(payload).encode()

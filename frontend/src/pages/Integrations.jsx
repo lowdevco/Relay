@@ -192,7 +192,7 @@ export default function Integrations() {
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {data.providers.map((p) => (
           <Card key={p.provider}>
             <CardHeader title={p.label} icon={Bot} action={<Badge color={p.configured ? 'green' : 'red'}>{p.configured ? 'Configured' : 'Missing'}</Badge>} />

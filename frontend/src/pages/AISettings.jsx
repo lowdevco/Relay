@@ -9,7 +9,6 @@ import { PROVIDER_LABEL, formatDateTime, useApi } from '../lib/hooks'
 const PROVIDER_META = {
   gemini: { tagline: "Google's Gemini models via the official google-genai SDK.", accent: 'from-sky-500 to-indigo-500', letter: 'G' },
   deepseek: { tagline: "DeepSeek's chat completions API (OpenAI-compatible).", accent: 'from-blue-600 to-cyan-500', letter: 'D' },
-  grok: { tagline: "xAI's official Grok API (paid per token; no free tier).", accent: 'from-stone-800 to-stone-950', letter: 'X' },
   groq: { tagline: 'GroqCloud open models. Official free plan (rate limited).', accent: 'from-orange-500 to-rose-500', letter: 'Q', free: true },
 }
 
@@ -233,9 +232,9 @@ export default function AISettings() {
       </div>
 
       <p className="mt-4 text-xs text-stone-500">
-        API keys and model identifiers are read from <code>backend/.env</code> (GEMINI_*, DEEPSEEK_*, GROK_*, GROQ_*) and are never sent to the browser.
+        API keys and model identifiers are read from <code>backend/.env</code> (GEMINI_*, DEEPSEEK_*, GROQ_*) and are never sent to the browser.
         Groq has a free plan with rate limits (about 30 requests/min, 1,000/day, 8K tokens/min); requests over the limit
-        are retried briefly, then queued for your review. xAI Grok is billed per token.
+        are retried briefly, then queued for your review.
       </p>
     </div>
   )
